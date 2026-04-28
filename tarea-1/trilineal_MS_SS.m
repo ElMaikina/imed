@@ -1,16 +1,17 @@
+%
 % Funcion que interpola una imagen 3D a una salida de diferentes
 % dimensiones a partir de un factor dado. La implementacion esta
 % hecha a partir del metodo indicado en:
 %
 %   - https://es.wikipedia.org/wiki/Interpolaci%C3%B3n_trilineal#cite_note-NASA-4
 %
-function volumen_salida = trilineal_MS_SS(volumen_entrada, factor)
+function volumen_salida = trilineal_MS_SS(im_in, factor)
     % Se revisa que el factor cumpla con el enunciado
     if factor <= 0.05 || factor >= 2
         error('El factor debe estar en el rango (0.05, 2)');
     end
     % Obtiene las dimensiones de la matriz de entrada para leer
-    [Nx, Ny, Nz] = size(volumen_entrada);
+    [Nx, Ny, Nz] = size(im_in);
     % Genera el espacio de salida para escribir
     Nx_out = round(Nx * factor);
     Ny_out = round(Ny * factor);
@@ -18,7 +19,7 @@ function volumen_salida = trilineal_MS_SS(volumen_entrada, factor)
     % Rellena la matriz de salida con ceros
     volumen_salida = zeros(Nx_out, Ny_out, Nz_out);
     % Convierte las entradas a doble precision
-    volumen_entrada = double(volumen_entrada);
+    im_in = double(im_in);
     % Itera a partir de las tres dimensiones para mapear los puntos
     for x_out = 1:Nx_out
         for y_out = 1:Ny_out
@@ -47,14 +48,14 @@ function volumen_salida = trilineal_MS_SS(volumen_entrada, factor)
                 dy = y_in - y0;
                 dz = z_in - z0;
                 % Obtiene los ocho vecinos que rodean nuestra coordenada central
-                I000 = volumen_entrada(x0, y0, z0);
-                I100 = volumen_entrada(x1, y0, z0);
-                I010 = volumen_entrada(x0, y1, z0);
-                I110 = volumen_entrada(x1, y1, z0);
-                I001 = volumen_entrada(x0, y0, z1);
-                I101 = volumen_entrada(x1, y0, z1);
-                I011 = volumen_entrada(x0, y1, z1);
-                I111 = volumen_entrada(x1, y1, z1);
+                I000 = im_in(x0, y0, z0);
+                I100 = im_in(x1, y0, z0);
+                I010 = im_in(x0, y1, z0);
+                I110 = im_in(x1, y1, z0);
+                I001 = im_in(x0, y0, z1);
+                I101 = im_in(x1, y0, z1);
+                I011 = im_in(x0, y1, z1);
+                I111 = im_in(x1, y1, z1);
                 % Interpola en el eje "X"
                 c00 = (1 - dx) * I000 + dx * I100;
                 c01 = (1 - dx) * I001 + dx * I101;
