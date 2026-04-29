@@ -87,6 +87,7 @@ function IM_GRAPPA = D4(C, m, R)
     W = pinv(src) * tgt;
 
     %% 6. Interpolación de líneas faltantes
+    kspace_grappa = kspace_us;
 
     for y = 2:Nx-1
         if mask(y,1) == 0
