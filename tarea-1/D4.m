@@ -1,4 +1,4 @@
-function IM_GRAPPA = grappa_reconstruccion(C, m, R)
+function IM_GRAPPA = D4(C, m, R)
 %GRAPPA_RECONSTRUCCION Reconstrucción GRAPPA para submuestreo Rx
 %
 % Entradas:
@@ -52,40 +52,51 @@ function IM_GRAPPA = grappa_reconstruccion(C, m, R)
         imshow(log(abs(kspace_us(:,:,c)) + 1), []);
         title(['k-space Bobina ', num2str(c)]);
     end
-
-    %% 5. Calibración GRAPPA (kernel 2x3)
-    kernel_pe = 2;   % dirección de fase
-    kernel_fe = 3;   % dirección de frecuencia
-
+    
+    % Parámetros del kernel GRAPPA
+    kernel_pe = 2;   % líneas adquiridas vecinas (arriba y abajo)
+    kernel_fe = 3;   % columnas vecinas
+    half_fe   = floor(kernel_fe/kernel_pe);
+    
+    % Región ACS
     ACS = kspace_full(acs_start:acs_end,:,:);
-
+    
     src = [];
     tgt = [];
-
+    
+    % Calibración de pesos
     for y = 2:size(ACS,1)-1
-        for x = 2:Ny-1
-
-            % usar solo líneas adquiridas
-            if mod(y-1,R) == 0
-                source_block = ACS([y-1 y+1], x-1:x+1, :);
-                target_point = ACS(y, x, :);
-
+        for x = 1+half_fe:Ny-half_fe
+            
+            % Solo posiciones donde la línea central sería faltante
+            if mod(y-1,R) == 1
+                
+                % Kernel 2x3: línea superior e inferior
+                source_block = ACS([y-1, y+1], x-half_fe:x+half_fe, :);
+                
+                % Punto objetivo (línea central)
+                target_point = squeeze(ACS(y, x, :));
+                
                 src = [src; source_block(:).'];
                 tgt = [tgt; target_point(:).'];
             end
         end
     end
-
-    % Pesos GRAPPA
+    
+    % Cálculo de pesos
     W = pinv(src) * tgt;
 
     %% 6. Interpolación de líneas faltantes
-    kspace_grappa = kspace_us;
 
     for y = 2:Nx-1
         if mask(y,1) == 0
-            for x = 2:Ny-1
-                source_block = kspace_grappa([y-1 y+1], x-1:x+1, :);
+            for x = 1+half_fe:Ny-half_fe
+                
+                % Kernel 2x3
+                source_block = kspace_grappa([y-1, y+1], ...
+                                             x-half_fe:x+half_fe, :);
+                
+                % Reconstrucción de la muestra faltante
                 kspace_grappa(y,x,:) = reshape(source_block(:).'*W, [1 1 Nc]);
             end
         end
