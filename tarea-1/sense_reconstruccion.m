@@ -1,81 +1,92 @@
-% RECONSTRUCCION_SENSE
-% cargamos la imagen y los mapas de sensibilidad de las bobinas
-load('IMAGENES_CURSO\DATOS_SENSE\C.mat')
-load('IMAGENES_CURSO\DATOS_SENSE\m.mat')
+function IM_R = sense_reconstruccion(C, m, rate)
+%SENSE_RECONSTRUCCION Reconstrucción SENSE para submuestreo Rx
+%
+% Entradas:
+%   C    : mapas de sensibilidad [Nx, Ny, Nc]
+%   m    : imagen original [Nx, Ny]
+%   rate : factor de aceleración (2, 4, 6, 8, ...)
+%
+% Salida:
+%   IM_R : imagen reconstruida y normalizada
 
-figure, 
-imshow(m,[])
-title('Imagen referencia')
+    % Dimensiones
+    [Nx, Ny, Nc] = size(C);
 
-% multiplicamos la imagen original por cada uno de los mapas de
-% sensibilidad de las bobinas
-rec_by_coil = repmat(m,1,1,size(C,3)).*C;
+    % Generar imágenes por bobina
+    rec_by_coil = repmat(m, 1, 1, Nc) .* C;
 
-figure, 
-for n=1:size(C,3)
-    subplot(2,4,n), imshow(abs(rec_by_coil(:,:,n)),[]), title(['bobina ',num2str(n)])
-end
-
-% generamos un submuestreo uniforme en la direccion de las fases
-mask = zeros(size(C));
-mask(1:2:end,:,:) = mask(1:2:end,:,:) + 1;
-kspace = [];
-
-figure,
-for n=1:size(C,3)
-    kspace(:,:,n) = fftshift(fft2(rec_by_coil(:,:,n))).*mask(:,:,n);
-    subplot(2,4,n), imshow(log(abs(kspace(:,:,n))),[]), title(['kspace bobina x2',num2str(n)])
-end
-
-% mostramos la imagen resultante de cada una de las bobinas
-im_rec_fullsize = [];
-figure,
-for n=1:size(C,3)
-    im_rec_fullsize(:,:,n) = abs(ifft2(fftshift(kspace(:,:,n))));
-    subplot(2,4,n), imshow(im_rec_fullsize(:,:,n),[]), title(['im-recon bobina x2',num2str(n)])
-end
-
-% mostramos la imagen resultante de cada una de las bobinas considerando
-% solo las lineas con informacion. 
-kspace_subx2 = [];
-im_rec_fullsize = [];
-figure,
-for n=1:size(C,3)
-    kspace_subx2(:,:,n) = kspace(1:2:end,:,n);
-    brain_subx2(:,:,n) = ifft2(fftshift(kspace_subx2(:,:,n)));
-    subplot(4,4,n), imshow(abs(brain_subx2(:,:,n)),[]), title(['im-recon-sub bobina x2',num2str(n)])
-    subplot(4,4,n+8), imshow(log(abs(kspace_subx2(:,:,n))),[]), title(['kspace-sub bobina x2',num2str(n)])
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% para sense con submuestreo x2
-M = size(brain_subx2,1);
-N = size(brain_subx2,2);
-Ncoils = 8 ;
-rate = 2; %submuestreo
-MM = size(C,1);
-
-% para X2
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% #################### SENSE ####################################################
-IMSENSE = complex(zeros([MM,N]));
-for jj=1:M % rows
-    for ii=1:N % columns
-        % considerar que la traspuesta compleja es ".'"
-        CC = squeeze(C([jj , jj + M], ii , : )).';
-        a = squeeze(brain_subx2(jj,ii,:));
-        IMSENSE([jj , jj + M] , ii ) = inv(CC.'*inv(eye(size(CC,1)))*CC)*CC.'*inv(eye(size(CC,1)))*a;
+    % Mostrar imágenes por bobina
+    figure('Name', ['Imágenes por bobina - x', num2str(rate)]);
+    for n = 1:Nc
+        subplot(2,4,n);
+        imshow(abs(rec_by_coil(:,:,n)), []);
+        title(['Bobina ', num2str(n)]);
     end
+
+    % Máscara de submuestreo
+    mask = zeros(size(C));
+    mask(1:rate:end,:,:) = 1;
+
+    % K-space submuestreado
+    kspace = zeros(size(C));
+    figure('Name', ['K-space submuestreado x', num2str(rate)]);
+    for n = 1:Nc
+        kspace(:,:,n) = fftshift(fft2(rec_by_coil(:,:,n))) .* mask(:,:,n);
+        subplot(2,4,n);
+        imshow(log(abs(kspace(:,:,n)) + 1), []);
+        title(['k-space bobina ', num2str(n)]);
+    end
+
+    % Extraer solo líneas adquiridas
+    idx_sampled = 1:rate:Nx;
+    M = numel(idx_sampled);
+
+    brain_sub = complex(zeros(M, Ny, Nc));
+    kspace_sub = complex(zeros(M, Ny, Nc));
+
+    figure('Name', ['Bobinas submuestreadas x', num2str(rate)]);
+    for n = 1:Nc
+        kspace_sub(:,:,n) = kspace(idx_sampled,:,n);
+        brain_sub(:,:,n) = ifft2(fftshift(kspace_sub(:,:,n)));
+
+        subplot(2,4,n);
+        imshow(abs(brain_sub(:,:,n)), []);
+        title(['Bobina ', num2str(n), ' x', num2str(rate)]);
+    end
+
+    % Reconstrucción SENSE
+    IMSENSE = complex(zeros(Nx, Ny));
+
+    for jj = 1:M
+        idx_folded = jj:rate:Nx;
+
+        for ii = 1:Ny
+            % Matriz de sensibilidades
+            CC = squeeze(C(idx_folded, ii, :)).';
+
+            % Señales medidas en las bobinas
+            a = squeeze(brain_sub(jj, ii, :));
+
+            % Solución por pseudo-inversa
+            IMSENSE(idx_folded, ii) = pinv(CC) * a;
+        end
+    end
+
+    % Magnitud y normalización
+    IMSENSE = abs(IMSENSE);
+    IM_R = IMSENSE / max(IMSENSE(:));
+
+    % Mostrar resultado final
+    figure('Name', ['Reconstrucción SENSE x', num2str(rate)]);
+    subplot(1,3,1);
+    imshow(m, []);
+    title('Imagen original');
+
+    subplot(1,3,2);
+    imshow(IM_R, []);
+    title(['Reconstrucción SENSE x', num2str(rate)]);
+
+    subplot(1,3,3);
+    imshow(abs(m - IM_R), []);
+    title('Error absoluto');
 end
-
-IMSENSE = abs(IMSENSE);
-IM_R = IMSENSE/max(IMSENSE(:));
-
-figure,
-subplot 131, imshow(m)
-title('brain-original')                                       
-subplot 132, imshow(IM_R)
-title('brain-recon b0x2')                                    
-subplot 133, imshow(abs(m-IM_R))
-title('diff')                                    
