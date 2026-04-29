@@ -5,7 +5,7 @@
 %
 %   - https://es.wikipedia.org/wiki/Interpolaci%C3%B3n_trilineal#cite_note-NASA-4
 %
-function volumen_salida = trilineal_MS_SS(im_in, factor)
+function volumen_salida = trilineal_MS_JG(im_in, factor)
     % Se revisa que el factor cumpla con el enunciado
     if factor <= 0.05 || factor >= 2
         error('El factor debe estar en el rango (0.05, 2)');
