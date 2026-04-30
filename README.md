@@ -1,5 +1,3 @@
-Miguel Soto Delgado
-Rol 201973623-K
+Miguel Soto Delgado Rol 201973623-K
 
-Javier Gómez Álvarez  
-Rol 202173519-4
+Javier Gómez Álvarez Rol 202173519-4
